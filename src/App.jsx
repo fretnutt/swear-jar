@@ -408,7 +408,7 @@ export default function SwearJarApp() {
                       <div className="flex-1">
                         <p className="text-slate-900 font-medium">
                           {infraction.userName}{' '}
-                          <span className="text-slate-500 font-normal">said / committed</span>{' '}
+                          <span className="text-slate-500 font-normal">got busted for a</span>{' '}
                           <span className={`font-bold ${
                             infraction.type === "Can't" ? 'text-red-600' : 
                             infraction.type === "Personal Foul" ? 'text-amber-600' : 

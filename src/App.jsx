@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Clock, User, Trophy, X, Search, Ban, Car, Wrench, Flag, MessageSquare, Send } from 'lucide-react';
+import { AlertTriangle, Clock, User, Trophy, X, Search, Ban, Car, Wrench, Flag, MessageSquare, Send, BarChart3, Medal, Info } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, arrayUnion, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -94,10 +94,11 @@ export default function SwearJarApp() {
   const [userName, setUserName] = useState('');
   const [isJoined, setIsJoined] = useState(false);
   const [infractions, setInfractions] = useState([]);
-  const [timeframe, setTimeframe] = useState('all'); // 'all' | 'week' | 'day'
+  const [timeframe, setTimeframe] = useState('all'); // 'all' | 'month' | 'week' | 'day'
   
-  // Modal state
+  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -161,7 +162,9 @@ export default function SwearJarApp() {
     const now = new Date();
     let startDate = new Date(now);
     
-    if (timeframe === 'week') {
+    if (timeframe === 'month') {
+      startDate.setDate(1);
+    } else if (timeframe === 'week') {
       // Calculate start of current week (Monday 12:00 AM)
       const dayOfWeek = now.getDay();
       const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -210,6 +213,74 @@ export default function SwearJarApp() {
       score: maxScore
     };
   }, [stats.userCounts]);
+
+  const comprehensiveAnalytics = useMemo(() => {
+    const total = filteredInfractions.length;
+    const cantPct = total ? Math.round((stats.cantCount / total) * 100) : 0;
+    const dontKnowPct = total ? Math.round((stats.dontKnowCount / total) * 100) : 0;
+    const foulPct = total ? Math.round((stats.personalFoulCount / total) * 100) : 0;
+
+    const userStats = {};
+    const tauntStats = {};
+
+    filteredInfractions.forEach(inf => {
+      const name = inf.userName;
+      if (!userStats[name]) userStats[name] = { cant: 0, dontKnow: 0, foul: 0, total: 0 };
+      
+      if (inf.type === "Can't") userStats[name].cant++;
+      if (inf.type === "Don't Know") userStats[name].dontKnow++;
+      if (inf.type === "Personal Foul") userStats[name].foul++;
+      userStats[name].total++;
+
+      if (inf.taunts) {
+        inf.taunts.forEach(taunt => {
+          const tName = taunt.userName;
+          tauntStats[tName] = (tauntStats[tName] || 0) + 1;
+        });
+      }
+    });
+
+    const getWinner = (metricFn) => {
+      let winner = null;
+      let max = 0;
+      Object.keys(userStats).forEach(name => {
+        const score = metricFn(userStats[name]);
+        if (score > max) {
+          max = score;
+          winner = name;
+        } else if (score === max && score > 0) {
+          winner = winner ? `${winner}, ${name}` : name;
+        }
+      });
+      return { winner, score: max };
+    };
+
+    const brickWall = getWinner(u => u.cant);
+    const deer = getWinner(u => u.dontKnow);
+    const honestAbe = getWinner(u => u.foul);
+
+    let topHeckler = null;
+    let maxTaunts = 0;
+    Object.keys(tauntStats).forEach(name => {
+      if (tauntStats[name] > maxTaunts) {
+        maxTaunts = tauntStats[name];
+        topHeckler = name;
+      } else if (tauntStats[name] === maxTaunts && maxTaunts > 0) {
+        topHeckler += `, ${name}`;
+      }
+    });
+
+    return {
+      total,
+      cantPct,
+      dontKnowPct,
+      foulPct,
+      brickWall,
+      deer,
+      honestAbe,
+      heckler: { winner: topHeckler, score: maxTaunts }
+    };
+  }, [filteredInfractions, stats]);
 
   const handleJoin = (e) => {
     e.preventDefault();
@@ -336,21 +407,21 @@ export default function SwearJarApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 pb-12">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm flex-shrink-0">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <div className="bg-slate-100 p-2 rounded-lg border border-slate-200">
               <Car className="w-6 h-6 text-slate-700" />
             </div>
             <h1 className="text-xl font-black tracking-tight">The Swear Jar</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 overflow-x-auto hide-scrollbar">
               <button
                 onClick={() => setTimeframe('day')}
-                className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
+                className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all whitespace-nowrap ${
                   timeframe === 'day' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -358,21 +429,38 @@ export default function SwearJarApp() {
               </button>
               <button
                 onClick={() => setTimeframe('week')}
-                className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
+                className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all whitespace-nowrap ${
                   timeframe === 'week' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 This Week
               </button>
               <button
+                onClick={() => setTimeframe('month')}
+                className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all whitespace-nowrap ${
+                  timeframe === 'month' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                This Month
+              </button>
+              <button
                 onClick={() => setTimeframe('all')}
-                className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
+                className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all whitespace-nowrap ${
                   timeframe === 'all' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 All Time
               </button>
             </div>
+            
+            <button
+              onClick={() => setIsAnalyticsOpen(true)}
+              className="flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 py-1.5 px-3 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Analytics</span>
+            </button>
+            
             <div className="hidden sm:flex items-center space-x-2 text-sm font-medium bg-slate-100 py-1.5 px-3 rounded-full border border-slate-200">
               <User className="w-4 h-4 text-slate-500" />
               <span>{userName}</span>
@@ -381,7 +469,7 @@ export default function SwearJarApp() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 mt-8 space-y-8">
+      <main className="max-w-5xl mx-auto px-4 mt-8 space-y-8 flex-1 w-full">
         
         {/* Action Buttons */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -468,7 +556,7 @@ export default function SwearJarApp() {
               Activity Feed
             </h3>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider bg-white px-2 py-1 rounded border border-slate-200">
-              {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'This Week' : 'All Time'}
+              {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'This Week' : timeframe === 'month' ? 'This Month' : 'All Time'}
             </span>
           </div>
           <div className="divide-y divide-slate-100 overflow-y-auto flex-1 p-2 sm:p-0">
@@ -594,6 +682,16 @@ export default function SwearJarApp() {
         </section>
       </main>
 
+      {/* Footer Terms & Conditions */}
+      <footer className="mt-auto py-8 px-4 text-center text-slate-400 text-xs flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
+        <Info className="w-5 h-5 mb-2 text-slate-300" />
+        <p className="font-bold uppercase tracking-widest text-slate-300 mb-1">Terms & Conditions</p>
+        <p className="max-w-md">
+          By participating in the Swear Jar, you acknowledge that the slate is officially wiped clean on the 1st of every month (using the "This Month" filter). Sigh a breath of relief and start fresh!
+        </p>
+      </footer>
+
+      {/* Logging Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col">
@@ -653,6 +751,147 @@ export default function SwearJarApp() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Modal */}
+      {isAnalyticsOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 bg-indigo-50 border-b border-indigo-100">
+              <h3 className="text-lg font-black text-indigo-900 flex items-center">
+                <BarChart3 className="w-5 h-5 mr-2 text-indigo-600" />
+                Comprehensive Statistics
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider bg-white px-2 py-1 rounded border border-indigo-200 shadow-sm">
+                  {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'This Week' : timeframe === 'month' ? 'This Month' : 'All Time'}
+                </span>
+                <button 
+                  onClick={() => setIsAnalyticsOpen(false)}
+                  className="text-indigo-400 hover:text-indigo-600 transition-colors p-1 bg-white rounded-md border border-indigo-200 shadow-sm"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              {comprehensiveAnalytics.total === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Medal className="w-16 h-16 mx-auto mb-4 text-slate-200" />
+                  <p className="text-lg font-medium">No infractions recorded for this timeframe.</p>
+                  <p className="text-sm">Check back later when someone messes up!</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* Metric Breakdown */}
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Volume Breakdown</h4>
+                    <div className="flex h-6 w-full rounded-full overflow-hidden shadow-inner bg-slate-100 mb-3">
+                      <div style={{ width: `${comprehensiveAnalytics.cantPct}%` }} className="bg-red-500 transition-all duration-1000"></div>
+                      <div style={{ width: `${comprehensiveAnalytics.dontKnowPct}%` }} className="bg-blue-500 transition-all duration-1000"></div>
+                      <div style={{ width: `${comprehensiveAnalytics.foulPct}%` }} className="bg-amber-500 transition-all duration-1000"></div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-sm font-medium">
+                      <div className="text-red-600">
+                        <span className="text-xs block text-slate-400 uppercase tracking-wide">Can't</span>
+                        {comprehensiveAnalytics.cantPct}%
+                      </div>
+                      <div className="text-blue-600">
+                        <span className="text-xs block text-slate-400 uppercase tracking-wide">Don't Know</span>
+                        {comprehensiveAnalytics.dontKnowPct}%
+                      </div>
+                      <div className="text-amber-600">
+                        <span className="text-xs block text-slate-400 uppercase tracking-wide">Personal Foul</span>
+                        {comprehensiveAnalytics.foulPct}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Funny Awards */}
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Hall of Fame (or Shame)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      
+                      {/* The Brick Wall */}
+                      <div className="bg-white border border-red-100 p-4 rounded-xl shadow-sm relative overflow-hidden group">
+                        <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:scale-110 transition-transform">
+                          <Ban className="w-24 h-24 text-red-500" />
+                        </div>
+                        <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">The Brick Wall</p>
+                        <h5 className="text-lg font-black text-slate-900 mb-1">
+                          {comprehensiveAnalytics.brickWall.winner || 'Nobody!'}
+                        </h5>
+                        <p className="text-sm text-slate-500">
+                          {comprehensiveAnalytics.brickWall.score > 0 
+                            ? `Logged ${comprehensiveAnalytics.brickWall.score} "Can'ts"` 
+                            : 'No "Can\'ts" logged!'}
+                        </p>
+                      </div>
+
+                      {/* Deer in Headlights */}
+                      <div className="bg-white border border-blue-100 p-4 rounded-xl shadow-sm relative overflow-hidden group">
+                        <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:scale-110 transition-transform">
+                          <Search className="w-24 h-24 text-blue-500" />
+                        </div>
+                        <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Resident in Headlights</p>
+                        <h5 className="text-lg font-black text-slate-900 mb-1">
+                          {comprehensiveAnalytics.deer.winner || 'Nobody!'}
+                        </h5>
+                        <p className="text-sm text-slate-500">
+                          {comprehensiveAnalytics.deer.score > 0 
+                            ? `Logged ${comprehensiveAnalytics.deer.score} "Don't Knows"` 
+                            : 'No "Don\'t Knows" logged!'}
+                        </p>
+                      </div>
+
+                      {/* Honest Abe */}
+                      <div className="bg-white border border-amber-100 p-4 rounded-xl shadow-sm relative overflow-hidden group">
+                        <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:scale-110 transition-transform">
+                          <Flag className="w-24 h-24 text-amber-500" />
+                        </div>
+                        <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-1">The Honest Abe</p>
+                        <h5 className="text-lg font-black text-slate-900 mb-1">
+                          {comprehensiveAnalytics.honestAbe.winner || 'Nobody!'}
+                        </h5>
+                        <p className="text-sm text-slate-500">
+                          {comprehensiveAnalytics.honestAbe.score > 0 
+                            ? `Claimed ${comprehensiveAnalytics.honestAbe.score} Personal Fouls` 
+                            : 'No Personal Fouls claimed!'}
+                        </p>
+                      </div>
+
+                      {/* The Heckler */}
+                      <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm relative overflow-hidden group">
+                        <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:scale-110 transition-transform">
+                          <MessageSquare className="w-24 h-24 text-slate-900" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">The Heckler</p>
+                        <h5 className="text-lg font-black text-slate-900 mb-1">
+                          {comprehensiveAnalytics.heckler.winner || 'Nobody!'}
+                        </h5>
+                        <p className="text-sm text-slate-500">
+                          {comprehensiveAnalytics.heckler.score > 0 
+                            ? `Dropped ${comprehensiveAnalytics.heckler.score} Taunts` 
+                            : 'No Taunts dropped!'}
+                        </p>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 text-center">
+              <button
+                onClick={() => setIsAnalyticsOpen(false)}
+                className="w-full sm:w-auto bg-slate-900 text-white font-bold py-2.5 px-8 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+              >
+                Back to Feed
+              </button>
+            </div>
           </div>
         </div>
       )}

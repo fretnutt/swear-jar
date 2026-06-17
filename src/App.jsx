@@ -357,7 +357,7 @@ export default function SwearJarApp() {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans text-slate-800">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
         <div className="flex justify-center mb-6"><div className="bg-slate-100 p-4 rounded-full"><Car className="w-12 h-12 text-slate-700" /></div></div>
-        <h1 className="text-2xl font-black text-center mb-2">Service Accountability</h1>
+        <h1 className="text-2xl font-black text-center mb-2">The Compliance & Metrics Swear Jar</h1>
         <p className="text-center text-slate-500 mb-8">The Swear Jar for "Can't", "Don't Know", and Personal Fouls.</p>
         <form onSubmit={(e) => { e.preventDefault(); if (userName.trim()) setIsJoined(true); }} className="space-y-4">
           <input type="text" maxLength={20} required className="w-full px-4 py-3 rounded-lg border outline-none" placeholder="Enter display name" value={userName} onChange={(e) => setUserName(e.target.value)} />

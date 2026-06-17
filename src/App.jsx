@@ -455,8 +455,8 @@ export default function SwearJarApp() {
                     </div>
                   )}
 
-                  {/* Taunt Actions (No Self Taunting) */}
-                  {user && infraction.userId !== user.uid && (
+                  {/* Taunt Actions (No Self Taunting & Max 1 Taunt Per User) */}
+                  {user && infraction.userId !== user.uid && !infraction.taunts?.some(t => t.userId === user.uid) && (
                     <div className="mt-3 ml-13">
                       {activeTauntId === infraction.id ? (
                         <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">

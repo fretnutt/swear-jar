@@ -94,7 +94,7 @@ export default function SwearJarApp() {
   const [userName, setUserName] = useState('');
   const [isJoined, setIsJoined] = useState(false);
   const [infractions, setInfractions] = useState([]);
-  const [timeframe, setTimeframe] = useState('all'); // 'all' | 'week'
+  const [timeframe, setTimeframe] = useState('all'); // 'all' | 'week' | 'day'
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -158,16 +158,22 @@ export default function SwearJarApp() {
   const filteredInfractions = useMemo(() => {
     if (timeframe === 'all') return infractions;
     
-    // Calculate start of current week (Sunday 12:00 AM)
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+    let startDate = new Date(now);
+    
+    if (timeframe === 'week') {
+      // Calculate start of current week (Monday 12:00 AM)
+      const dayOfWeek = now.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      startDate.setDate(now.getDate() - diffToMonday);
+    }
+    
+    startDate.setHours(0, 0, 0, 0);
 
     return infractions.filter(inf => {
       // Local optimistic writes don't have a timestamp immediately, count them as current
       if (!inf.timestamp) return true;
-      return inf.timestamp.toDate() >= startOfWeek;
+      return inf.timestamp.toDate() >= startDate;
     });
   }, [infractions, timeframe]);
 
@@ -343,6 +349,14 @@ export default function SwearJarApp() {
           <div className="flex items-center space-x-4">
             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
               <button
+                onClick={() => setTimeframe('day')}
+                className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
+                  timeframe === 'day' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Today
+              </button>
+              <button
                 onClick={() => setTimeframe('week')}
                 className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
                   timeframe === 'week' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
@@ -454,7 +468,7 @@ export default function SwearJarApp() {
               Activity Feed
             </h3>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider bg-white px-2 py-1 rounded border border-slate-200">
-              {timeframe === 'week' ? 'This Week' : 'All Time'}
+              {timeframe === 'day' ? 'Today' : timeframe === 'week' ? 'This Week' : 'All Time'}
             </span>
           </div>
           <div className="divide-y divide-slate-100 overflow-y-auto flex-1 p-2 sm:p-0">

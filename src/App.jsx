@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Clock, User, Trophy, X, Search, Ban, Car, Wrench, Flag, CalendarDays } from 'lucide-react';
+import { AlertTriangle, Clock, User, Trophy, X, Search, Ban, Car, Wrench, Flag, MessageSquare, Send } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, doc, addDoc, updateDoc, arrayUnion, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 // Initialize Firebase using the environment-provided configuration
 const firebaseConfig = {
@@ -18,6 +18,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "my-swear-jar-app";
 
+const PREDEFINED_TAUNTS = [
+  "Rookie mistake!",
+  "Read the manual!",
+  "Skill issue.",
+  "Needs more coffee ☕",
+  "Did you try turning it off and on?"
+];
+
 export default function SwearJarApp() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -31,6 +39,10 @@ export default function SwearJarApp() {
   const [selectedType, setSelectedType] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Taunt state
+  const [activeTauntId, setActiveTauntId] = useState(null);
+  const [customTaunt, setCustomTaunt] = useState('');
 
   useEffect(() => {
     signInAnonymously(auth).catch(error => console.error("Authentication failed:", error));
@@ -147,6 +159,7 @@ export default function SwearJarApp() {
         userName: userName,
         type: selectedType,
         notes: notes.trim(),
+        taunts: [], // Initialize empty taunts array
         timestamp: serverTimestamp()
       });
       setIsModalOpen(false);
@@ -157,9 +170,29 @@ export default function SwearJarApp() {
     }
   };
 
+  const submitTaunt = async (infractionId, text) => {
+    if (!text.trim() || !user) return;
+    
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'infractions', infractionId);
+      await updateDoc(docRef, {
+        taunts: arrayUnion({
+          userId: user.uid,
+          userName: userName,
+          text: text.trim(),
+          timestamp: Date.now() // Local timestamp for simple sorting/display
+        })
+      });
+      setCustomTaunt('');
+      setActiveTauntId(null);
+    } catch (error) {
+      console.error("Failed to post taunt:", error);
+    }
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Just now';
-    const date = timestamp.toDate();
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const today = new Date();
     
     const timeOptions = { hour: 'numeric', minute: '2-digit' };
@@ -343,8 +376,8 @@ export default function SwearJarApp() {
         </section>
 
         {/* Activity Feed */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col" style={{ maxHeight: '600px' }}>
-          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
+        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col" style={{ maxHeight: '800px' }}>
+          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10 rounded-t-2xl">
             <h3 className="font-bold text-slate-800 flex items-center">
               <Clock className="w-5 h-5 mr-2 text-slate-500" />
               Activity Feed
@@ -353,7 +386,7 @@ export default function SwearJarApp() {
               {timeframe === 'week' ? 'This Week' : 'All Time'}
             </span>
           </div>
-          <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+          <div className="divide-y divide-slate-100 overflow-y-auto flex-1 p-2 sm:p-0">
             {filteredInfractions.length === 0 ? (
               <div className="p-12 text-center text-slate-500 flex flex-col items-center">
                 <Wrench className="w-12 h-12 text-slate-300 mb-3" />
@@ -362,16 +395,17 @@ export default function SwearJarApp() {
               </div>
             ) : (
               filteredInfractions.map((infraction) => (
-                <div key={infraction.id} className="p-6 hover:bg-slate-50 transition-colors">
+                <div key={infraction.id} className="p-4 sm:p-6 hover:bg-slate-50 transition-colors flex flex-col">
+                  {/* Main Infraction Info */}
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-inner flex-shrink-0
+                    <div className="flex items-start space-x-3 w-full">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-inner flex-shrink-0 mt-1
                         ${infraction.type === "Can't" ? 'bg-red-100 text-red-600' : 
                           infraction.type === "Personal Foul" ? 'bg-amber-100 text-amber-600' : 
                           'bg-blue-100 text-blue-600'}`}>
                         {infraction.userName.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-slate-900 font-medium">
                           {infraction.userName}{' '}
                           <span className="text-slate-500 font-normal">said / committed</span>{' '}
@@ -385,14 +419,89 @@ export default function SwearJarApp() {
                         <p className="text-xs text-slate-400 mt-0.5">
                           {formatDate(infraction.timestamp)}
                         </p>
+                        
+                        {infraction.notes && (
+                          <div className="mt-2 pl-3 border-l-2 border-slate-200">
+                            <p className="text-sm text-slate-600 italic">"{infraction.notes}"</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  {infraction.notes && (
-                    <div className="mt-3 ml-13 pl-4 border-l-2 border-slate-200">
-                      <p className="text-sm text-slate-600 italic">"{infraction.notes}"</p>
+
+                  {/* Taunts Display */}
+                  {infraction.taunts && infraction.taunts.length > 0 && (
+                    <div className="mt-4 ml-13 space-y-2">
+                      {infraction.taunts.map((taunt, idx) => (
+                        <div key={idx} className="bg-white border border-slate-100 shadow-sm rounded-lg p-3 text-sm flex items-start space-x-2">
+                          <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                            {taunt.userName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-700 mr-2">{taunt.userName}</span>
+                            <span className="text-slate-600">{taunt.text}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
+
+                  {/* Taunt Actions (No Self Taunting) */}
+                  {user && infraction.userId !== user.uid && (
+                    <div className="mt-3 ml-13">
+                      {activeTauntId === infraction.id ? (
+                        <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Quick Taunt</p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {PREDEFINED_TAUNTS.map(taunt => (
+                              <button
+                                key={taunt}
+                                onClick={() => submitTaunt(infraction.id, taunt)}
+                                className="bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-slate-700 text-xs font-medium py-1.5 px-3 rounded-full transition-colors shadow-sm"
+                              >
+                                {taunt}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Or write your own</p>
+                          <div className="flex space-x-2">
+                            <input
+                              type="text"
+                              value={customTaunt}
+                              onChange={(e) => setCustomTaunt(e.target.value)}
+                              placeholder="Type a custom taunt..."
+                              className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-slate-500 outline-none"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') submitTaunt(infraction.id, customTaunt);
+                              }}
+                            />
+                            <button
+                              onClick={() => submitTaunt(infraction.id, customTaunt)}
+                              disabled={!customTaunt.trim()}
+                              className="bg-slate-800 hover:bg-slate-900 text-white p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <button 
+                            onClick={() => setActiveTauntId(null)}
+                            className="text-xs text-slate-500 hover:text-slate-700 mt-3 font-medium underline"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setActiveTauntId(infraction.id)}
+                          className="flex items-center text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors py-1 px-2 -ml-2 rounded hover:bg-slate-100"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                          Taunt
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               ))
             )}

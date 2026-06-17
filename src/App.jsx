@@ -129,9 +129,18 @@ export default function SwearJarApp() {
     }, initial);
   }, [filteredInfractions]);
 
-  const topOffender = useMemo(() => {
+  const topOffenders = useMemo(() => {
     if (Object.keys(stats.userCounts).length === 0) return null;
-    return Object.entries(stats.userCounts).sort((a, b) => b[1] - a[1])[0];
+    
+    const maxScore = Math.max(...Object.values(stats.userCounts));
+    const leaders = Object.entries(stats.userCounts)
+      .filter(([_, count]) => count === maxScore)
+      .map(([name]) => name);
+      
+    return {
+      names: leaders,
+      score: maxScore
+    };
   }, [stats.userCounts]);
 
   const handleJoin = (e) => {
@@ -362,12 +371,12 @@ export default function SwearJarApp() {
             <p className="text-[10px] sm:text-xs text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center relative z-10">
               Top Offender
             </p>
-            {topOffender ? (
+            {topOffenders ? (
               <div className="relative z-10 text-center w-full">
-                <p className="text-lg font-bold truncate w-full" title={topOffender[0]}>
-                  {topOffender[0]}
+                <p className="text-lg font-bold truncate w-full" title={topOffenders.names.join(', ')}>
+                  {topOffenders.names.length > 1 ? `Tied: ${topOffenders.names.join(', ')}` : topOffenders.names[0]}
                 </p>
-                <p className="text-sm font-medium text-slate-400">{topOffender[1]} total</p>
+                <p className="text-sm font-medium text-slate-400">{topOffenders.score} total</p>
               </div>
             ) : (
               <p className="text-lg font-medium text-slate-500 relative z-10">None yet</p>

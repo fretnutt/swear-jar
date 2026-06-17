@@ -26,6 +26,68 @@ const PREDEFINED_TAUNTS = [
   "Did you try turning it off and on?"
 ];
 
+const ACTION_PHRASES = [
+  "got busted for a",
+  "was caught red-handed with a",
+  "failed spectacularly with a",
+  "blundered into a",
+  "faceplanted while attempting a",
+  "dropped the ball on a",
+  "took a massive L with a",
+  "was exposed for a",
+  "hit a brick wall and logged a",
+  "fumbled the bag with a",
+  "awkwardly confessed to a",
+  "threw in the towel and took a",
+  "shamelessly admitted to a",
+  "completely whiffed on a",
+  "pressed the panic button for a",
+  "waved the white flag with a",
+  "earned a spot on the wall of shame for a",
+  "accidentally leaked a",
+  "tripped over their own shoelaces and got a",
+  "short-circuited and registered a",
+  "gave up the ghost and logged a",
+  "folded under pressure and took a",
+  "totally blanked and earned a",
+  "took the easy way out with a",
+  "threw their hands up and claimed a",
+  "crashed and burned with a",
+  "got caught slacking with a",
+  "checked out early with a",
+  "completely derailed with a",
+  "had a brain malfunction resulting in a",
+  "got caught sleepwalking into a",
+  "proudly announced their",
+  "humbly accepted defeat via a",
+  "took a nosedive straight into a",
+  "reluctantly coughed up a",
+  "got completely stumped and logged a",
+  "threw a Hail Mary but still got a",
+  "hit the eject button and took a",
+  "surrendered their pride for a",
+  "got lost in the sauce and logged a",
+  "fessed up to a terrible",
+  "let down the entire team with a",
+  "needs a reboot after a",
+  "got publicly shamed for a",
+  "confidently walked right into a",
+  "somehow managed to get a",
+  "completely choked and logged a",
+  "needs to read the manual after a",
+  "was completely bamboozled into a",
+  "ran out of brain cells and took a"
+];
+
+const getActionPhrase = (id) => {
+  if (!id) return ACTION_PHRASES[0];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ACTION_PHRASES[Math.abs(hash) % ACTION_PHRASES.length];
+};
+
 export default function SwearJarApp() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -417,7 +479,7 @@ export default function SwearJarApp() {
                       <div className="flex-1">
                         <p className="text-slate-900 font-medium">
                           {infraction.userName}{' '}
-                          <span className="text-slate-500 font-normal">got busted for a</span>{' '}
+                          <span className="text-slate-500 font-normal">{getActionPhrase(infraction.id)}</span>{' '}
                           <span className={`font-bold ${
                             infraction.type === "Can't" ? 'text-red-600' : 
                             infraction.type === "Personal Foul" ? 'text-amber-600' : 

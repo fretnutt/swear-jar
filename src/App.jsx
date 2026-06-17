@@ -409,7 +409,7 @@ export default function SwearJarApp() {
             <div className="relative z-10">
               <span className="text-sm font-bold text-amber-500 tracking-wider uppercase mb-1 block">My Bad</span>
               <h2 className="text-2xl font-black text-slate-900">Personal Foul</h2>
-              <p className="text-slate-500 mt-2 text-sm font-medium">Hold yourself accountable for a mistake.</p>
+              <p className="text-slate-500 mt-2 text-sm font-medium">Hold yourself accountable. (Spill the juicy details, or take it to the grave!)</p>
             </div>
           </button>
         </section>

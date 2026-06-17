@@ -277,7 +277,7 @@ export default function SwearJarApp() {
             <div className="relative z-10">
               <span className="text-sm font-bold text-red-500 tracking-wider uppercase mb-1 block">Oops, I did it</span>
               <h2 className="text-2xl font-black text-slate-900">I said "Can't"</h2>
-              <p className="text-slate-500 mt-2 text-sm font-medium">Logged a failure to find an alternative.</p>
+              <p className="text-slate-500 mt-2 text-sm font-medium">"You can do it Bobby Boucher!"</p>
             </div>
           </button>
 
@@ -291,7 +291,7 @@ export default function SwearJarApp() {
             <div className="relative z-10">
               <span className="text-sm font-bold text-blue-500 tracking-wider uppercase mb-1 block">Deer in headlights</span>
               <h2 className="text-2xl font-black text-slate-900">I said "Don't Know"</h2>
-              <p className="text-slate-500 mt-2 text-sm font-medium">Logged a failure to investigate first.</p>
+              <p className="text-slate-500 mt-2 text-sm font-medium">"Hold on, let me consult the Magic 8-Ball..."</p>
             </div>
           </button>
 
